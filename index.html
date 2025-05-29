@@ -67,6 +67,10 @@
       margin-bottom: 6px;
       user-select: none;
     }
+
+    #classCheckboxes {
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -264,7 +268,7 @@
     if (role === "teacher") {
       const teacherPanel = document.getElementById("teacherPanel");
       teacherPanel.classList.remove("hidden");
-      teacherPanel.innerHTML = `
+      teacherPanel.innerHTML = ` 
         <h3>Segna Presenze</h3>
         <label for="classFilter">Filtra per classe:</label>
         <select id="classFilter">
@@ -329,7 +333,7 @@
         };
 
         const presenceBtns = document.createElement("span");
-        presenceBtns.innerHTML = `
+        presenceBtns.innerHTML = ` 
           <button onclick="segnapresenza('${email}', true)">Presente</button>
           <button onclick="segnapresenza('${email}', false)">Assente</button>
         `;
@@ -354,9 +358,9 @@
       for (const [emailUtente, utente] of Object.entries(users)) {
         if (utente.role === "parent") {
           const childEmail = document.getElementById("childEmail")?.value || null;
-          if (childEmail && childEmail === email) {
-            if (!notifications[emailUtente]) notifications[emailUtente] = [];
-            notifications[emailUtente].push(`Il figlio ${user.name} è stato assente.`);
+          if (childEmail && utente.email === childEmail) {
+            notifications[utente.email] = notifications[utente.email] || [];
+            notifications[utente.email].push(`${user.name} ha saltato la lezione!`);
           }
         }
       }
@@ -364,179 +368,28 @@
 
     localStorage.setItem("users", JSON.stringify(users));
     localStorage.setItem("notifications", JSON.stringify(notifications));
-
-    alert(`Presenza aggiornata per ${user.name}`);
-    if (currentUser && currentUser.role === "teacher") {
-      const filtroClasse = document.getElementById("classFilter").value;
-      renderStudentList(filtroClasse);
-    } else if (currentUser && currentUser.email === email) {
-      updateStats(currentUser, "studentStats");
-    } else if (childUser && childUser.email === email) {
-      updateStats(childUser, "parentStats");
-    }
+    renderStudentList('');
   }
 
-  function updateStats(user, elementId) {
-    if (!user) return;
-    const presenze = user.presenze || 0;
-    const assenze = user.assenze || 0;
-    document.getElementById(elementId).textContent = `Presenze: ${presenze}, Assenze: ${assenze}`;
+  function updateStats(user, statsElementId) {
+    const statsElement = document.getElementById(statsElementId);
+    statsElement.innerHTML = `Presenze: ${user.presenze || 0}, Assenze: ${user.assenze || 0}`;
   }
 
   function showNotifications(user) {
-    if (!user) return;
-    const list = document.getElementById("notifications");
-    list.innerHTML = "";
-    const notifs = notifications[user.email] || [];
-    if (notifs.length === 0) {
-      list.innerHTML = "<li>Nessuna notifica</li>";
-      return;
-    }
-    notifs.forEach(note => {
-      const li = document.createElement("li");
-      li.textContent = note;
-      list.appendChild(li);
-    });
-  }
-
-  function renderStudentList() {
-  const studentList = document.getElementById("studentList");
-  studentList.innerHTML = "";
-
-  Object.entries(users).forEach(([email, user]) => {
-    if (user.ruolo === "studente") {
-      const userDiv = document.createElement("div");
-      userDiv.className = "user";
-
-      const collapsible = document.createElement("button");
-      collapsible.className = "collapsible";
-      collapsible.textContent = user.name;
-      userDiv.appendChild(collapsible);
-
-      const collapsibleContent = document.createElement("div");
-      collapsibleContent.className = "collapsible-content";
-
-      const classiInput = document.createElement("input");
-      classiInput.type = "text";
-      classiInput.value = user.classi.join(", ");
-      classiInput.placeholder = "Classi separate da virgola";
-      collapsibleContent.appendChild(classiInput);
-
-      // Pulsanti Presente / Assente
-      const presenceBtns = document.createElement("div");
-      presenceBtns.style.display = "flex";
-      presenceBtns.style.gap = "10px";
-      presenceBtns.style.marginTop = "10px";
-
-      const btnPresente = document.createElement("button");
-      btnPresente.textContent = "Presente";
-      btnPresente.style.flex = "1";
-      btnPresente.onclick = () => segnapresenza(email, true);
-
-      const btnAssente = document.createElement("button");
-      btnAssente.textContent = "Assente";
-      btnAssente.style.flex = "1";
-      btnAssente.onclick = () => segnapresenza(email, false);
-
-      presenceBtns.appendChild(btnPresente);
-      presenceBtns.appendChild(btnAssente);
-      collapsibleContent.appendChild(presenceBtns);
-
-      // Pulsante Salva Classi (sotto i due)
-      const saveBtn = document.createElement("button");
-      saveBtn.textContent = "Salva Classi";
-      saveBtn.style.width = "100%";
-      saveBtn.style.marginTop = "10px";
-      saveBtn.style.padding = "8px";
-      saveBtn.onclick = () => {
-        user.classi = classiInput.value.split(",").map(c => c.trim());
-        localStorage.setItem("users", JSON.stringify(users));
-        alert(`Classi aggiornate per ${user.name}: ${user.classi.join(", ")}`);
-        collapsibleContent.style.display = "none";
-      };
-
-      collapsibleContent.appendChild(saveBtn);
-      userDiv.appendChild(collapsibleContent);
-      studentList.appendChild(userDiv);
-
-      // Comportamento della tendina
-      collapsible.addEventListener("click", function () {
-        this.classList.toggle("active");
-        collapsibleContent.style.display = 
-          collapsibleContent.style.display === "block" ? "none" : "block";
+    const notificationsList = document.getElementById("notifications");
+    notificationsList.innerHTML = "";
+    if (notifications[user.email]) {
+      notifications[user.email].forEach(notification => {
+        const li = document.createElement("li");
+        li.textContent = notification;
+        notificationsList.appendChild(li);
       });
     }
-  });
-}
-
-  const list = document.getElementById("teacherList");
-  list.innerHTML = "";
-
-  for (const [email, user] of Object.entries(users)) {
-    if (user.role === "student") {
-      if (filtroClasse && !(user.classi || []).includes(filtroClasse)) continue;
-
-      const li = document.createElement("li");
-      const toggleBtn = document.createElement("strong");
-      toggleBtn.textContent = user.name;
-      toggleBtn.style.cursor = "pointer";
-
-      const collapsibleContent = document.createElement("div");
-      collapsibleContent.style.display = "none";
-
-      toggleBtn.onclick = () => {
-        collapsibleContent.style.display =
-          collapsibleContent.style.display === "none" ? "flex" : "none";
-      };
-
-      const classDiv = document.createElement("div");
-      classDiv.style.flexDirection = "column";
-      allClasses.forEach(cls => {
-        const label = document.createElement("label");
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.value = cls;
-        checkbox.checked = user.classi?.includes(cls);
-        checkbox.onchange = () => {
-          if (checkbox.checked) {
-            if (!user.classi.includes(cls)) user.classi.push(cls);
-          } else {
-            user.classi = user.classi.filter(c => c !== cls);
-          }
-        };
-        label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(cls));
-        classDiv.appendChild(label);
-      });
-
-      const saveBtn = document.createElement("button");
-      saveBtn.textContent = "Salva Classi";
-      saveBtn.onclick = () => {
-        localStorage.setItem("users", JSON.stringify(users));
-        alert(`Classi aggiornate per ${user.name}: ${user.classi.join(", ")}`);
-      };
-
-      const presenceBtns = document.createElement("span");
-      presenceBtns.innerHTML = `
-        <button onclick="segnapresenza('${email}', true)">Presente</button>
-        <button onclick="segnapresenza('${email}', false)">Assente</button>
-      `;
-
-      collapsibleContent.appendChild(classDiv);
-      collapsibleContent.appendChild(saveBtn);
-      collapsibleContent.appendChild(presenceBtns);
-
-      li.appendChild(toggleBtn);
-      li.appendChild(collapsibleContent);
-      list.appendChild(li);
-    }
   }
-}
-
 </script>
-<!-- IMMAGINE CENTRATA -->
 <div style="text-align: center; margin-top: 20px;">
-<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ0l-xwB3cSCnSty-iSmCdYZFG1u_xvns2kww&s"  alt="immagine incorporata" style="max-width: 100%; height: auto;" height="400px" width="400px">
+  <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ0l-xwB3cSCnSty-iSmCdYZFG1u_xvns2kww&s"  alt="immagine incorporata" style="max-width: 100%; height: auto;" height="400px" width="400px">
 </div>
 </body>
 </html>
