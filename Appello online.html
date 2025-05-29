@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Appello Online</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: #fff;
+      margin: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 2px solid gold;
+      border-radius: 10px;
+      background-color: #111;
+    }
+    h1, h2, h3 {
+      color: gold;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      margin-bottom: 20px;
+      border: 1px solid gold;
+      background-color: #000;
+      color: gold;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: gold;
+      color: black;
+      cursor: pointer;
+    }
+    .hidden { display: none; }
+    ul { list-style: none; padding: 0; }
+    li {
+      background-color: #222;
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    select[multiple] {
+      height: 80px;
+    }
+    span button {
+      margin-left: 5px;
+      width: auto;
+      padding: 5px 10px;
+      font-size: 0.9em;
+    }
+
+    #classCheckboxes label,
+    #teacherPanel ul li div label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      margin-bottom: 6px;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container" id="loginBox">
+  <h1>Login</h1>
+  <input type="text" id="email" placeholder="Email utente">
+  <input type="password" id="password" placeholder="Password">
+  <select id="role" onchange="handleRoleChange(this.value, 'childLogin')">
+    <option value="teacher">Insegnante</option>
+    <option value="student">Studente</option>
+    <option value="parent">Genitore</option>
+  </select>
+  <div id="childLogin" class="hidden">
+    <input type="text" id="childEmail" placeholder="Email figlio">
+    <input type="password" id="childPassword" placeholder="Password figlio">
+  </div>
+  <button onclick="login()">Accedi</button>
+  <button onclick="toggleRegister()">Non hai un account? Registrati</button>
+</div>
+
+<div class="container hidden" id="registerBox">
+  <h1>Registrazione</h1>
+  <input type="text" id="regName" placeholder="Nome completo">
+  <input type="text" id="regEmail" placeholder="Email">
+  <input type="password" id="regPassword" placeholder="Password">
+  <select id="regRole" onchange="handleRoleChange(this.value, 'regChildFields')">
+    <option value="student">Studente</option>
+    <option value="teacher">Insegnante</option>
+    <option value="parent">Genitore</option>
+  </select>
+  <div id="regChildFields" class="hidden">
+    <input type="text" id="regChildEmail" placeholder="Email figlio">
+    <input type="password" id="regChildPassword" placeholder="Password figlio">
+  </div>
+  <div id="regClasses" class="hidden">
+    <h3>Seleziona le classi:</h3>
+    <div id="classCheckboxes"></div>
+  </div>
+  <button onclick="register()">Registrati</button>
+  <button onclick="toggleRegister()">Torna al login</button>
+</div>
+
+<div class="container hidden" id="dashboard">
+  <h2 id="welcomeText">Benvenuto</h2>
+  <div id="teacherPanel" class="hidden"></div>
+  <div id="studentPanel" class="hidden">
+    <h3>Le tue presenze</h3>
+    <p id="studentStats"></p>
+  </div>
+  <div id="parentPanel" class="hidden">
+    <h3>Presenze figlio</h3>
+    <p id="parentStats"></p>
+    <h3>Notifiche</h3>
+    <ul id="notifications"></ul>
+  </div>
+</div>
+
+<script>
+  const users = {};
+  const notifications = {};
+  let currentUser = null;
+  let childUser = null;
+
+  const allClasses = ["Rising Stars", "The Family", "Sweet Dreamers", "Palcoscemi", "Heels", "K-pop"];
+
+  const savedUsers = localStorage.getItem("users");
+  if (savedUsers) Object.assign(users, JSON.parse(savedUsers));
+  const savedNotifs = localStorage.getItem("notifications");
+  if (savedNotifs) Object.assign(notifications, JSON.parse(savedNotifs));
+
+  function renderClassCheckboxes() {
+    const container = document.getElementById("classCheckboxes");
+    container.innerHTML = "";
+    allClasses.forEach(cls => {
+      const label = document.createElement("label");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = cls;
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(cls));
+      container.appendChild(label);
+    });
+  }
+
+  renderClassCheckboxes();
+
+  function toggleRegister() {
+    document.getElementById("loginBox").classList.toggle("hidden");
+    document.getElementById("registerBox").classList.toggle("hidden");
+  }
+
+  function handleRoleChange(role, childSectionId) {
+    const childFields = document.getElementById(childSectionId);
+    const classFields = document.getElementById("regClasses");
+
+    if (role === "parent") {
+      childFields.classList.remove("hidden");
+      classFields.classList.add("hidden");
+    } else if (role === "student" || role === "teacher") {
+      childFields.classList.add("hidden");
+      classFields.classList.remove("hidden");
+    } else {
+      childFields.classList.add("hidden");
+      classFields.classList.add("hidden");
+    }
+  }
+
+  function register() {
+    const name = document.getElementById("regName").value.trim();
+    const email = document.getElementById("regEmail").value.trim();
+    const password = document.getElementById("regPassword").value.trim();
+    const role = document.getElementById("regRole").value;
+
+    if (!name || !email || !password) {
+      alert("Compila tutti i campi");
+      return;
+    }
+
+    if (users[email]) {
+      alert("Utente già registrato");
+      return;
+    }
+
+    let classes = [];
+    if (role === "student" || role === "teacher") {
+      const checkboxes = document.querySelectorAll("#classCheckboxes input[type='checkbox']:checked");
+      checkboxes.forEach(cb => classes.push(cb.value));
+    }
+
+    if (role === "parent") {
+      const childEmail = document.getElementById("regChildEmail").value.trim();
+      const childPassword = document.getElementById("regChildPassword").value.trim();
+      const child = users[childEmail]; 
+
+      if (!child || child.password !== childPassword || child.role !== "student") {
+        alert("Credenziali figlio non valide");
+        return;
+      }
+      notifications[email] = [];
+      childUser = child;
+    }
+
+    users[email] = {
+      email,
+      name,
+      password,
+      role,
+      ...(role === "student" ? { presenze: 0, assenze: 0, classi: classes } : {}),
+      ...(role === "teacher" ? { classi: classes } : {})
+    };
+
+    localStorage.setItem("users", JSON.stringify(users));
+    localStorage.setItem("notifications", JSON.stringify(notifications));
+
+    alert("Registrazione completata!");
+    toggleRegister();
+  }
+
+  function login() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const role = document.getElementById("role").value;
+    const user = users[email];
+
+    if (!user || user.password !== password || user.role !== role) {
+      alert("Credenziali errate");
+      return;
+    }
+
+    if (role === "parent") {
+      const childEmail = document.getElementById("childEmail").value.trim();
+      const childPassword = document.getElementById("childPassword").value.trim();
+      const child = users[childEmail];
+      if (!child || child.password !== childPassword || child.role !== "student") {
+        alert("Credenziali figlio errate");
+        return;
+      }
+      childUser = child;
+    }
+
+    currentUser = user;
+    document.getElementById("loginBox").classList.add("hidden");
+    document.getElementById("registerBox").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+    document.getElementById("welcomeText").textContent = `Benvenuto, ${user.name}`;
+    showPanel(role);
+  }
+
+  function showPanel(role) {
+    document.getElementById("teacherPanel").classList.add("hidden");
+    document.getElementById("studentPanel").classList.add("hidden");
+    document.getElementById("parentPanel").classList.add("hidden");
+
+    if (role === "teacher") {
+      const teacherPanel = document.getElementById("teacherPanel");
+      teacherPanel.classList.remove("hidden");
+      teacherPanel.innerHTML = `
+        <h3>Segna Presenze</h3>
+        <label for="classFilter">Filtra per classe:</label>
+        <select id="classFilter">
+          <option value="">-- Tutte --</option>
+          ${allClasses.map(c => `<option value="${c}">${c}</option>`).join("")}
+        </select>
+        <ul id="teacherList"></ul>
+      `;
+      document.getElementById("classFilter").addEventListener("change", () => {
+        renderStudentList(document.getElementById("classFilter").value);
+      });
+      renderStudentList("");
+    }
+
+    if (role === "student") {
+      document.getElementById("studentPanel").classList.remove("hidden");
+      updateStats(currentUser, "studentStats");
+    }
+
+    if (role === "parent") {
+      document.getElementById("parentPanel").classList.remove("hidden");
+      updateStats(childUser, "parentStats");
+      showNotifications(currentUser);
+    }
+  }
+
+  function renderStudentList(filtroClasse) {
+    const list = document.getElementById("teacherList");
+    list.innerHTML = "";
+
+    for (const [email, user] of Object.entries(users)) {
+      if (user.role === "student") {
+        if (filtroClasse && !(user.classi || []).includes(filtroClasse)) continue;
+
+        const li = document.createElement("li");
+        const classDiv = document.createElement("div");
+
+        allClasses.forEach(cls => {
+          const label = document.createElement("label");
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.value = cls;
+          checkbox.checked = user.classi?.includes(cls);
+          checkbox.onchange = () => {
+            if (checkbox.checked) {
+              if (!user.classi.includes(cls)) user.classi.push(cls);
+            } else {
+              user.classi = user.classi.filter(c => c !== cls);
+            }
+          };
+          label.appendChild(checkbox);
+          label.appendChild(document.createTextNode(cls));
+          classDiv.appendChild(label);
+        });
+
+        const saveBtn = document.createElement("button");
+        saveBtn.textContent = "Salva Classi";
+        saveBtn.onclick = () => {
+          localStorage.setItem("users", JSON.stringify(users));
+          alert(`Classi aggiornate per ${user.name}: ${user.classi.join(", ")}`);
+          renderStudentList(filtroClasse);
+        };
+
+        const presenceBtns = document.createElement("span");
+        presenceBtns.innerHTML = `
+          <button onclick="segnapresenza('${email}', true)">Presente</button>
+          <button onclick="segnapresenza('${email}', false)">Assente</button>
+        `;
+
+        li.innerHTML = `<strong>${user.name}</strong><br>`;
+        li.appendChild(classDiv);
+        li.appendChild(saveBtn);
+        li.appendChild(presenceBtns);
+        list.appendChild(li);
+      }
+    }
+  }
+
+  function segnapresenza(email, presente) {
+    const user = users[email];
+    if (!user || user.role !== "student") return;
+
+    if (presente) {
+      user.presenze = (user.presenze || 0) + 1;
+    } else {
+      user.assenze = (user.assenze || 0) + 1;
+      for (const [emailUtente, utente] of Object.entries(users)) {
+        if (utente.role === "parent") {
+          const childEmail = document.getElementById("childEmail")?.value || null;
+          if (childEmail && childEmail === email) {
+            if (!notifications[emailUtente]) notifications[emailUtente] = [];
+            notifications[emailUtente].push(`Il figlio ${user.name} è stato assente.`);
+          }
+        }
+      }
+    }
+
+    localStorage.setItem("users", JSON.stringify(users));
+    localStorage.setItem("notifications", JSON.stringify(notifications));
+
+    alert(`Presenza aggiornata per ${user.name}`);
+    if (currentUser && currentUser.role === "teacher") {
+      const filtroClasse = document.getElementById("classFilter").value;
+      renderStudentList(filtroClasse);
+    } else if (currentUser && currentUser.email === email) {
+      updateStats(currentUser, "studentStats");
+    } else if (childUser && childUser.email === email) {
+      updateStats(childUser, "parentStats");
+    }
+  }
+
+  function updateStats(user, elementId) {
+    if (!user) return;
+    const presenze = user.presenze || 0;
+    const assenze = user.assenze || 0;
+    document.getElementById(elementId).textContent = `Presenze: ${presenze}, Assenze: ${assenze}`;
+  }
+
+  function showNotifications(user) {
+    if (!user) return;
+    const list = document.getElementById("notifications");
+    list.innerHTML = "";
+    const notifs = notifications[user.email] || [];
+    if (notifs.length === 0) {
+      list.innerHTML = "<li>Nessuna notifica</li>";
+      return;
+    }
+    notifs.forEach(note => {
+      const li = document.createElement("li");
+      li.textContent = note;
+      list.appendChild(li);
+    });
+  }
+</script>
+<img src="popular logo.png">
+
+</body>
+</html>
